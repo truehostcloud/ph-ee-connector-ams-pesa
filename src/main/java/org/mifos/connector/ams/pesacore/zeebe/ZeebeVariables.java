@@ -13,4 +13,6 @@ public class ZeebeVariables {
     public static final String ERROR_CODE = "errorCode";
     public static final String ERROR_DESCRIPTION = "errorDescription";
     public static final String EXTERNAL_ID = "externalId";
+
+    public static final String CUSTOM_DATA = "customData";
 }

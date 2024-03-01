@@ -5,20 +5,31 @@ import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.dataformat.JsonLibrary;
 import org.json.JSONObject;
+import org.mifos.connector.ams.pesacore.camel.config.PesaCoreProperties;
 import org.mifos.connector.ams.pesacore.pesacore.dto.PesacoreRequestDTO;
+import org.mifos.connector.ams.pesacore.pesacore.dto.RosterGetClientResponseDTO;
 import org.mifos.connector.ams.pesacore.util.ConnectionUtils;
 import org.mifos.connector.ams.pesacore.util.PesacoreUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+
+import static org.mifos.connector.ams.pesacore.camel.config.CamelProperties.ACCOUNT_NUMBER;
 import static org.mifos.connector.ams.pesacore.camel.config.CamelProperties.CHANNEL_REQUEST;
+import static org.mifos.connector.ams.pesacore.camel.config.CamelProperties.CLIENT_NAME_VARIABLE_NAME;
+import static org.mifos.connector.ams.pesacore.camel.config.CamelProperties.CURRENCY;
+import static org.mifos.connector.ams.pesacore.camel.config.CamelProperties.CUSTOM_DATA_VARIABLE_NAME;
+import static org.mifos.connector.ams.pesacore.camel.config.CamelProperties.GET_ACCOUNT_DETAILS_FLAG;
 import static org.mifos.connector.ams.pesacore.zeebe.ZeebeVariables.*;
 
 @Component
 public class PesaRouteBuilder extends RouteBuilder {
 
     Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    private final PesaCoreProperties pesaCoreProperties;
 
     @Value("${pesacore.base-url}")
     private String pesacoreBaseUrl;
@@ -29,11 +40,18 @@ public class PesaRouteBuilder extends RouteBuilder {
     @Value("${pesacore.endpoint.confirmation}")
     private String confirmationEndpoint;
 
+    @Value("${pesacore.endpoint.client-details}")
+    private String clientDetailsEndpoint;
+
     @Value("${pesacore.auth-header}")
     private String authHeader;
 
     @Value("${ams.timeout}")
     private Integer amsTimeout;
+
+    public PesaRouteBuilder(PesaCoreProperties pesaCoreProperties) {
+        this.pesaCoreProperties = pesaCoreProperties;
+    }
 
     @Override
     public void configure() {
@@ -78,7 +96,7 @@ public class PesaRouteBuilder extends RouteBuilder {
                     responseObject.put("accountHoldingInstitutionId", e.getProperty("accountHoldingInstitutionId"));
                     responseObject.put(TRANSACTION_ID, e.getProperty(TRANSACTION_ID));
                     responseObject.put("amount", e.getProperty("amount"));
-                    responseObject.put("currency", e.getProperty("currency"));
+                    responseObject.put(CURRENCY, e.getProperty("currency"));
                     responseObject.put("msisdn", e.getProperty("msisdn"));
                     logger.debug("response object "+responseObject);
                     e.getIn().setBody(responseObject.toString());
@@ -97,10 +115,28 @@ public class PesaRouteBuilder extends RouteBuilder {
                     exchange.setProperty("accountHoldingInstitutionId", exchange.getProperty("accountHoldingInstitutionId"));
                     exchange.setProperty(TRANSACTION_ID, exchange.getProperty(TRANSACTION_ID));
                     exchange.setProperty("amount", exchange.getProperty("amount"));
-                    exchange.setProperty("currency", exchange.getProperty("currency"));
+                    exchange.setProperty(CURRENCY, exchange.getProperty("currency"));
                     exchange.setProperty("msisdn", exchange.getProperty("msisdn"));
                     logger.debug("Pesacore Validation Success");
                 })
+                .choice().when(exchangeProperty(GET_ACCOUNT_DETAILS_FLAG).isEqualTo(true))
+                .to("direct:get-client-details").unmarshal()
+                .json(JsonLibrary.Jackson, RosterGetClientResponseDTO.class).process(e -> {
+                    log.debug("Roster get client details api response: {}", e.getIn().getBody());
+                    try{
+                        RosterGetClientResponseDTO clientDetailsResponse = e.getIn()
+                                .getBody(RosterGetClientResponseDTO.class);
+                        if (clientDetailsResponse != null ) {
+                            e.setProperty(CLIENT_NAME_VARIABLE_NAME,
+                                    clientDetailsResponse.getFirstName() + " " + clientDetailsResponse.getLastName());
+                            e.setProperty(CUSTOM_DATA_VARIABLE_NAME,
+                                    RosterGetClientResponseDTO.convertToCustomData(clientDetailsResponse));
+                        }
+                    } catch (Exception exception){
+                        log.error("Unable to fetch client details from API response. Error: {}", exception);
+                    }
+
+                }).endChoice()
                 .otherwise()
                 .log(LoggingLevel.ERROR, "Validation unsuccessful")
                 .process(exchange -> {
@@ -109,7 +145,7 @@ public class PesaRouteBuilder extends RouteBuilder {
                     exchange.setProperty("accountHoldingInstitutionId", exchange.getProperty("accountHoldingInstitutionId"));
                     exchange.setProperty(TRANSACTION_ID, exchange.getProperty(TRANSACTION_ID));
                     exchange.setProperty("amount", exchange.getProperty("amount"));
-                    exchange.setProperty("currency", exchange.getProperty("currency"));
+                    exchange.setProperty(CURRENCY, exchange.getProperty("currency"));
                     exchange.setProperty("msisdn", exchange.getProperty("msisdn"));
                     logger.debug("Pesacore Validation Failure");
                 });
@@ -122,28 +158,30 @@ public class PesaRouteBuilder extends RouteBuilder {
                 .setHeader("Content-Type", constant("application/json"))
                 .setHeader("Authorization", simple("Token " + authHeader))
                 .setBody(exchange -> {
+                    PesacoreRequestDTO verificationRequestDTO;
                     if(exchange.getProperty(CHANNEL_REQUEST)!=null) {
                         JSONObject channelRequest = (JSONObject) exchange.getProperty(CHANNEL_REQUEST);
                         String transactionId = exchange.getProperty(TRANSACTION_ID, String.class);
 
-                        PesacoreRequestDTO verificationRequestDTO = buildPesacoreDtoFromChannelRequest(channelRequest,
+                       verificationRequestDTO = buildPesacoreDtoFromChannelRequest(channelRequest,
                                 transactionId);
-                        logger.debug("Validation request DTO: \n\n\n" + verificationRequestDTO);
-                        return verificationRequestDTO;
                     }
                     else {
                         JSONObject paybillRequest = new JSONObject(exchange.getIn().getBody(String.class));
-                        PesacoreRequestDTO pesacoreRequestDTO = PesacoreUtils.convertPaybillPayloadToAmsPesacorePayload(paybillRequest);
+                         verificationRequestDTO = PesacoreUtils.convertPaybillPayloadToAmsPesacorePayload(paybillRequest);
 
-                        log.debug(pesacoreRequestDTO.toString());
-                        exchange.setProperty(TRANSACTION_ID, pesacoreRequestDTO.getRemoteTransactionId());
-                        exchange.setProperty("amount", pesacoreRequestDTO.getAmount());
-                        exchange.setProperty("currency", pesacoreRequestDTO.getCurrency());
-                        exchange.setProperty("msisdn", pesacoreRequestDTO.getPhoneNumber());
+                        log.debug(verificationRequestDTO.toString());
+                        exchange.setProperty(TRANSACTION_ID, verificationRequestDTO.getRemoteTransactionId());
+                        exchange.setProperty("amount", verificationRequestDTO.getAmount());
+                        exchange.setProperty(CURRENCY, verificationRequestDTO.getCurrency());
+                        exchange.setProperty("msisdn", verificationRequestDTO.getPhoneNumber());
                         exchange.setProperty("accountHoldingInstitutionId", exchange.getProperty("accountHoldingInstitutionId"));
-                        logger.debug("Validation request DTO: \n\n\n" + pesacoreRequestDTO);
-                        return pesacoreRequestDTO;
                     }
+
+                    logger.debug("Validation request DTO: \n\n\n" + verificationRequestDTO);
+                    exchange.setProperty(ACCOUNT_NUMBER, verificationRequestDTO.getAccount());
+                    exchange.setProperty(GET_ACCOUNT_DETAILS_FLAG, verificationRequestDTO.isGetAccountDetails());
+                    return verificationRequestDTO;
                 })
                 .marshal().json(JsonLibrary.Jackson)
                 .toD(getVerificationEndpoint()+ "?bridgeEndpoint=true&throwExceptionOnFailure=false&"+
@@ -201,6 +239,18 @@ public class PesaRouteBuilder extends RouteBuilder {
                         ConnectionUtils.getConnectionTimeoutDsl(amsTimeout))
                 .log(LoggingLevel.INFO, "Pesacore verification api response: \n\n..\n\n..\n\n.. ${body}");
 
+        from("direct:get-client-details").id("get-client-details")
+                .log(LoggingLevel.INFO, "## Starting get client details route")
+                .setHeader(Exchange.HTTP_METHOD, constant("GET"))
+               .process(e -> {
+                    e.getIn().setHeader("accountNumber", e.getProperty(ACCOUNT_NUMBER, String.class));
+                    e.getIn().setHeader("clientCountry", getCountryIdByCurrency(e.getProperty(CURRENCY, String.class)));
+                    e.getIn().setHeader("clientDetailsUrl", getClientDetailsUrl());
+                })
+                .toD("${header.clientDetailsUrl}/?account={header.accountNumber}&country={header.clientCountry}&bridgeEndpoint=true&throwExceptionOnFailure=false&"
+                        + ConnectionUtils.getConnectionTimeoutDsl(amsTimeout))
+                .log(LoggingLevel.DEBUG, "Roster get client details api response: \n ${body}");
+
     }
 
 
@@ -212,6 +262,15 @@ public class PesaRouteBuilder extends RouteBuilder {
     // returns the complete URL for confirmation request
     private String getConfirmationEndpoint() {
         return pesacoreBaseUrl + confirmationEndpoint;
+    }
+
+    /**
+     * Returns the complete URL for getting client details endpoint.
+     *
+     * @return the full url to be used in getting client details requests
+     */
+    private String getClientDetailsUrl() {
+        return pesacoreBaseUrl + clientDetailsEndpoint;
     }
 
     private PesacoreRequestDTO buildPesacoreDtoFromChannelRequest(JSONObject channelRequest, String transactionId) {
@@ -233,5 +292,18 @@ public class PesaRouteBuilder extends RouteBuilder {
         pesacoreRequestDTO.setAccount(accountId);
 
         return pesacoreRequestDTO;
+    }
+
+    /**
+     * Get the country id by currency from the properties
+     *
+     * @param currency the currency code
+     * @return the country id
+     */
+    private String getCountryIdByCurrency(String currency){
+        if(StringUtils.hasText(currency)){
+            return pesaCoreProperties.getCountryByCurrency(currency).getCountryId();
+        }
+        return "";
     }
 }

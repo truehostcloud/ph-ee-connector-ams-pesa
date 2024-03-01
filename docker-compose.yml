@@ -1,0 +1,17 @@
+version: '3.9'
+
+services:
+
+  roster-ams:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5003:5000"
+    environment:
+      AMS_LOCAL_ENABLED: false
+      FINERACT_BASE-URL: https://loans.qa.oneacrefund.org/fineract-provider/api/v1
+      LOGGING_LEVEL_ROOT: INFO
+      SPRING_PROFILES_ACTIVE:
+      ZEEBE_BROKER_CONTACTPOINT: zeebe:26500
+      LOGGING_PATTERN_CONSOLE: "%d{dd-MM-yyyy HH:mm:ss.SSS} %magenta([%thread]) %highlight(%-5level) %logger.%M - %msg%n"

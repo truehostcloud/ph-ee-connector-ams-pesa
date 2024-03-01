@@ -5,6 +5,12 @@ import org.apache.camel.util.json.JsonObject;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.mifos.connector.ams.pesacore.pesacore.dto.PesacoreRequestDTO;
+import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.mifos.connector.ams.pesacore.zeebe.ZeebeVariables.CUSTOM_DATA;
 
 public class PesacoreUtils {
 
@@ -28,11 +34,12 @@ public class PesacoreUtils {
     }
 
     public static PesacoreRequestDTO convertPaybillPayloadToAmsPesacorePayload(JSONObject payload) {
-        String transactionId = convertCustomData(payload.getJSONArray("customData"), "transactionId");
-        String currency = convertCustomData(payload.getJSONArray("customData"), "currency");
+        JSONArray customData = payload.getJSONArray(CUSTOM_DATA);
+        String transactionId = convertCustomData(customData, "transactionId");
+        String currency = convertCustomData(customData, "currency");
         String wallet_msisdn = payload.getJSONObject("secondaryIdentifier").getString("value");
         String accountID = payload.getJSONObject("primaryIdentifier").getString("value");
-        String amount = convertCustomData(payload.getJSONArray("customData"), "amount").trim();
+        String amount = convertCustomData(customData, "amount").trim();
         Long amountLong = Double.valueOf(amount).longValue();
 
         PesacoreRequestDTO validationRequestDTO = new PesacoreRequestDTO();
@@ -42,6 +49,7 @@ public class PesacoreUtils {
         validationRequestDTO.setRemoteTransactionId(transactionId);
         validationRequestDTO.setPhoneNumber(wallet_msisdn);
         validationRequestDTO.setStatus(null);
+        validationRequestDTO.setGetAccountDetails(retrieveGetAccountDetailsFromCustomData(customData));
         return validationRequestDTO;
     }
     public static String convertCustomData(JSONArray customData, String key)
@@ -52,11 +60,27 @@ public class PesacoreUtils {
             try {
                 String filter = item.getString("key");
                 if (filter != null && filter.equalsIgnoreCase(key)) {
-                    return item.getString("value");
+                    Object val = item.get("value");
+                    return val != null ? val.toString() : null;
                 }
             } catch (Exception e){
             }
         }
         return null;
+    }
+
+    private static boolean retrieveGetAccountDetailsFromCustomData(JSONArray customData) {
+        boolean getAccountDetailsFlag = false;
+        if (customData != null) {
+            String getAccountDetailsCustomData = convertCustomData(customData, "getAccountDetails");
+            List<String> acceptedValues = new ArrayList<>();
+            acceptedValues.add("true");
+            acceptedValues.add("false");
+            if (StringUtils.hasText(getAccountDetailsCustomData)
+                    && acceptedValues.contains(getAccountDetailsCustomData)) {
+               getAccountDetailsFlag= Boolean.parseBoolean(getAccountDetailsCustomData);
+            }
+        }
+        return getAccountDetailsFlag;
     }
 }
