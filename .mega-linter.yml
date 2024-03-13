@@ -1,0 +1,16 @@
+# linters list
+ENABLE_LINTERS:
+  - YAML_PRETTIER
+  - GROOVY_NPM_GROOVY_LINT
+  - DOCKERFILE_HADOLINT
+  - JSON_PRETTIER
+  - JAVA_CHECKSTYLE
+
+# generic config
+SHOW_ELAPSED_TIME: true
+PRINT_ALPACA: false
+
+# Linter-specific config
+GROOVY_NPM_GROOVY_LINT_ARGUMENTS: --failon error
+JAVA_CHECKSTYLE_CONFIG_FILE: checkstyle.xml
+JAVA_CHECKSTYLE_RULES_PATH: config/checkstyle
