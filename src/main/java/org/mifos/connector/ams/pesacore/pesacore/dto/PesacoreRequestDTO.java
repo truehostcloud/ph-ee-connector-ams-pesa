@@ -34,6 +34,8 @@ public class PesacoreRequestDTO {
     @JsonProperty("receiptId")
     private String receiptId;
 
+    private boolean getAccountDetails;
+
     public PesacoreRequestDTO() {
     }
 
@@ -104,5 +106,13 @@ public class PesacoreRequestDTO {
 
     public void setReceiptId(String receiptId) {
         this.receiptId = receiptId;
+    }
+
+    public boolean isGetAccountDetails() {
+        return getAccountDetails;
+    }
+
+    public void setGetAccountDetails(boolean getAccountDetails) {
+        this.getAccountDetails = getAccountDetails;
     }
 }

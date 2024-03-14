@@ -25,6 +25,10 @@ pesacore:
   endpoint:
     verification: /api/paymentHub/Verification
     confirmation: /api/paymentHub/Confirmation
+    client-details: /Api/globalMM/Client
+  countries:
+    - countryId: ${PESACORE_COUNTRY_ID:1}
+      currency: ${PESACORE_COUNTRY_CURRENCY:RWF}
 
 management:
   endpoint:
@@ -38,3 +42,4 @@ management:
 logging:
   level:
     ROOT: ERROR
+
