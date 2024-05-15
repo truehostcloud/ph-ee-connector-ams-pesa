@@ -235,8 +235,7 @@ public class PesaRouteBuilder extends RouteBuilder {
                     ResponseEntity<RosterGetClientResponseDTO> exchange = restTemplate
                             .getForEntity(builder.toUriString(), RosterGetClientResponseDTO.class);
                     e.getIn().setBody(exchange.getBody());
-                })
-                .log(LoggingLevel.INFO, "Roster get client details api response: \n ${body}");
+                }).log(LoggingLevel.INFO, "Roster get client details api response: \n ${body}");
 
     }
 
