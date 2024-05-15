@@ -16,19 +16,21 @@ zeebe:
 
 ams:
   local:
-    enabled: false
+    enabled: true
   timeout: 60000
 
 pesacore:
-  base-url: https://qaoperations01.oneacrefund.org
-  auth-header: PaymentHubTest
+  base-url: https://opswebsitetest.oaftemp.org
+  auth-header: 51f56774-8ef6-11ec-b909-0242ac120002
   endpoint:
     verification: /api/paymentHub/Verification
     confirmation: /api/paymentHub/Confirmation
     client-details: /Api/globalMM/Client
   countries:
-    - countryId: ${PESACORE_COUNTRY_ID:1}
-      currency: ${PESACORE_COUNTRY_CURRENCY:RWF}
+    - country-id: ${PESACORE_COUNTRY_0_ID:1}
+      currency: ${PESACORE_COUNTRY_0_CURRENCY:RWF}
+    - country-id: 454
+      currency: MWK
 
 management:
   endpoint:
@@ -41,5 +43,5 @@ management:
         enabled: true
 logging:
   level:
-    ROOT: ERROR
+    ROOT: INFO
 

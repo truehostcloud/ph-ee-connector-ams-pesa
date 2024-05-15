@@ -1,8 +1,14 @@
 package org.mifos.connector.ams.pesacore.zeebe;
 
+import static org.mifos.connector.ams.pesacore.camel.config.CamelProperties.CHANNEL_REQUEST;
+import static org.mifos.connector.ams.pesacore.zeebe.ZeebeVariables.*;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.zeebe.client.ZeebeClient;
 import io.camunda.zeebe.client.api.response.ActivatedJob;
+import java.util.HashMap;
+import java.util.Map;
+import javax.annotation.PostConstruct;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.ProducerTemplate;
@@ -14,11 +20,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import javax.annotation.PostConstruct;
-import java.util.HashMap;
-import java.util.Map;
-import static org.mifos.connector.ams.pesacore.camel.config.CamelProperties.CHANNEL_REQUEST;
-import static org.mifos.connector.ams.pesacore.zeebe.ZeebeVariables.*;
 
 @Component
 public class ZeebeWorkers {
@@ -47,101 +48,85 @@ public class ZeebeWorkers {
     @PostConstruct
     public void setupWorkers() {
 
-        zeebeClient.newWorker()
-                .jobType("transfer-validation")
-                .handler((client, job) -> {
-                    logWorkerDetails(job);
+        zeebeClient.newWorker().jobType("transfer-validation").handler((client, job) -> {
+            logWorkerDetails(job);
 
-                    Map<String, Object> variables;
-                    if (isAmsLocalEnabled) {
-                        Exchange ex = new DefaultExchange(camelContext);
-                        // Do stuff here
-                        variables = job.getVariablesAsMap();
+            Map<String, Object> variables;
+            if (isAmsLocalEnabled) {
+                Exchange ex = new DefaultExchange(camelContext);
+                // Do stuff here
+                variables = job.getVariablesAsMap();
 
-                        JSONObject channelRequest = new JSONObject((String) variables.get("channelRequest"));
-                        String transactionId = (String) variables.get(TRANSACTION_ID);
+                JSONObject channelRequest = new JSONObject((String) variables.get("channelRequest"));
+                String transactionId = (String) variables.get(TRANSACTION_ID);
 
-                        ex.setProperty(CHANNEL_REQUEST, channelRequest);
-                        ex.setProperty(TRANSACTION_ID, transactionId);
+                ex.setProperty(CHANNEL_REQUEST, channelRequest);
+                ex.setProperty(TRANSACTION_ID, transactionId);
 
-                        producerTemplate.send("direct:transfer-validation-base", ex);
+                producerTemplate.send("direct:transfer-validation-base", ex);
 
-                        Boolean isPartyLookUpFailed = ex.getProperty(PARTY_LOOKUP_FAILED, boolean.class);
-                        if(isPartyLookUpFailed == null) {
-                            isPartyLookUpFailed = true;
-                        }
-                        variables.put(PARTY_LOOKUP_FAILED, isPartyLookUpFailed);
-                        if(isPartyLookUpFailed) {
-                            variables.put(ERROR_INFORMATION, ex.getIn().getBody(String.class));
-                            variables.put(ERROR_CODE, ex.getIn().getHeader("CamelHttpResponseCode"));
-                            variables.put(ERROR_DESCRIPTION, PesacoreUtils.parseErrorDescriptionFromJsonPayload(
-                                    ex.getIn().getBody(String.class)
-                            ));
-                        }
-                    } else {
-                        variables = new HashMap<>();
-                        variables.put(PARTY_LOOKUP_FAILED, false);
-                        variables.put(ERROR_INFORMATION, "AMS Local is disabled");
-                        variables.put(ERROR_CODE, null);
-                        variables.put(ERROR_DESCRIPTION, "AMS Local is disabled");
-                    }
+                Boolean isPartyLookUpFailed = ex.getProperty(PARTY_LOOKUP_FAILED, boolean.class);
+                if (isPartyLookUpFailed == null) {
+                    isPartyLookUpFailed = true;
+                }
+                variables.put(PARTY_LOOKUP_FAILED, isPartyLookUpFailed);
+                if (isPartyLookUpFailed) {
+                    variables.put(ERROR_INFORMATION, ex.getIn().getBody(String.class));
+                    variables.put(ERROR_CODE, ex.getIn().getHeader("CamelHttpResponseCode"));
+                    variables.put(ERROR_DESCRIPTION,
+                            PesacoreUtils.parseErrorDescriptionFromJsonPayload(ex.getIn().getBody(String.class)));
+                }
+            } else {
+                variables = new HashMap<>();
+                variables.put(PARTY_LOOKUP_FAILED, false);
+                variables.put(ERROR_INFORMATION, "AMS Local is disabled");
+                variables.put(ERROR_CODE, null);
+                variables.put(ERROR_DESCRIPTION, "AMS Local is disabled");
+            }
 
-                    zeebeClient.newCompleteCommand(job.getKey())
-                            .variables(variables)
-                            .send();
-                })
-                .name("transfer-validation")
-                .maxJobsActive(workerMaxJobs)
-                .open();
+            zeebeClient.newCompleteCommand(job.getKey()).variables(variables).send();
+        }).name("transfer-validation").maxJobsActive(workerMaxJobs).open();
 
-        zeebeClient.newWorker()
-                .jobType("transfer-settlement")
-                .handler((client, job) -> {
-                    logWorkerDetails(job);
+        zeebeClient.newWorker().jobType("transfer-settlement").handler((client, job) -> {
+            logWorkerDetails(job);
 
-                    Map<String, Object> variables;
-                    if (isAmsLocalEnabled) {
-                        Exchange ex = new DefaultExchange(camelContext);
-                        // Do stuff here
-                        variables = job.getVariablesAsMap();
+            Map<String, Object> variables;
+            if (isAmsLocalEnabled) {
+                Exchange ex = new DefaultExchange(camelContext);
+                // Do stuff here
+                variables = job.getVariablesAsMap();
 
-                        JSONObject channelRequest = new JSONObject((String) variables.get("channelRequest"));
-                        String transactionId = (String) variables.get(TRANSACTION_ID);
-                        String mpesaReceiptNumber = (String) variables.get(EXTERNAL_ID);
+                JSONObject channelRequest = new JSONObject((String) variables.get("channelRequest"));
+                String transactionId = (String) variables.get(TRANSACTION_ID);
+                String mpesaReceiptNumber = (String) variables.get(EXTERNAL_ID);
 
-                        ex.setProperty(CHANNEL_REQUEST, channelRequest);
-                        ex.setProperty(TRANSACTION_ID, transactionId);
-                        ex.setProperty(EXTERNAL_ID, mpesaReceiptNumber);
+                ex.setProperty(CHANNEL_REQUEST, channelRequest);
+                ex.setProperty(TRANSACTION_ID, transactionId);
+                ex.setProperty(EXTERNAL_ID, mpesaReceiptNumber);
 
-                        producerTemplate.send("direct:transfer-settlement-base", ex);
+                producerTemplate.send("direct:transfer-settlement-base", ex);
 
-                        Boolean isSettlementFailed = ex.getProperty(TRANSFER_SETTLEMENT_FAILED, boolean.class);
-                        if(isSettlementFailed == null) {
-                            isSettlementFailed = true;
-                        }
-                        variables.put(TRANSFER_SETTLEMENT_FAILED, isSettlementFailed);
-                        if(isSettlementFailed) {
-                            variables.put(ERROR_INFORMATION, ex.getIn().getBody(String.class));
-                            variables.put(ERROR_CODE, ex.getIn().getHeader("CamelHttpResponseCode"));
-                            variables.put(ERROR_DESCRIPTION, PesacoreUtils.parseErrorDescriptionFromJsonPayload(
-                                    ex.getIn().getBody(String.class)
-                            ));
-                        }
-                    } else {
-                        variables = new HashMap<>();
-                        variables.put(TRANSFER_SETTLEMENT_FAILED, false);
-                        variables.put(ERROR_INFORMATION, "AMS Local is disabled");
-                        variables.put(ERROR_CODE, null);
-                        variables.put(ERROR_DESCRIPTION, "AMS Local is disabled");
-                    }
+                Boolean isSettlementFailed = ex.getProperty(TRANSFER_SETTLEMENT_FAILED, boolean.class);
+                if (isSettlementFailed == null) {
+                    isSettlementFailed = true;
+                }
+                variables.put(TRANSFER_SETTLEMENT_FAILED, isSettlementFailed);
+                if (isSettlementFailed) {
+                    variables.put(ERROR_INFORMATION, ex.getIn().getBody(String.class));
+                    variables.put(ERROR_CODE, ex.getIn().getHeader("CamelHttpResponseCode"));
+                    variables.put(ERROR_DESCRIPTION,
+                            PesacoreUtils.parseErrorDescriptionFromJsonPayload(ex.getIn().getBody(String.class)));
+                }
+            } else {
+                variables = new HashMap<>();
+                variables.put(TRANSFER_SETTLEMENT_FAILED, false);
+                variables.put(ERROR_INFORMATION, "AMS Local is disabled");
+                variables.put(ERROR_CODE, null);
+                variables.put(ERROR_DESCRIPTION, "AMS Local is disabled");
+            }
 
-                    zeebeClient.newCompleteCommand(job.getKey())
-                            .variables(variables)
-                            .send();
-                })
-                .name("transfer-settlement")
-                .maxJobsActive(workerMaxJobs)
-                .open();
+            zeebeClient.newCompleteCommand(job.getKey()).variables(variables).send();
+        }).name("transfer-settlement").maxJobsActive(workerMaxJobs).open();
 
     }
 

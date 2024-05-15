@@ -1,6 +1,7 @@
 package org.mifos.connector.ams.pesacore.pesacore.dto;
 
 public class CustomData {
+
     public String key;
     public Object value;
 
@@ -24,8 +25,7 @@ public class CustomData {
         return "CustomData(key=" + this.getKey() + ", value=" + this.getValue() + ")";
     }
 
-    public CustomData() {
-    }
+    public CustomData() {}
 
     public CustomData(String key, Object value) {
         this.key = key;

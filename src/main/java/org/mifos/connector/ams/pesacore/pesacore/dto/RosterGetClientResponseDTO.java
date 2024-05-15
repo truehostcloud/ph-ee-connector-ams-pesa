@@ -1,21 +1,12 @@
 package org.mifos.connector.ams.pesacore.pesacore.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * {
- *     "globalClientId": "abcd-1234",
- *     "accountNumber": "123456",
- *     "firstName": "John",
- *     "lastName": "Doe",
- *     "countryId": 1,
- *     "accountBalance": 0.0,
- *     "banned": false,
- *     "active": true
- * }
+ * { "globalClientId": "abcd-1234", "accountNumber": "123456", "firstName": "John", "lastName": "Doe", "countryId": 1,
+ * "accountBalance": 0.0, "banned": false, "active": true }
  */
 public class RosterGetClientResponseDTO {
 
@@ -96,8 +87,11 @@ public class RosterGetClientResponseDTO {
         this.active = active;
     }
 
-    @Override public String toString() {
-        return "RosterGetClientResponseDTO{" + "globalClientId='" + globalClientId + '\'' + ", accountNumber='" + accountNumber + '\'' + ", firstName='" + firstName + '\'' + ", lastName='" + lastName + '\'' + ", countryId=" + countryId + ", banned=" + banned + ", active=" + active + '}';
+    @Override
+    public String toString() {
+        return "RosterGetClientResponseDTO{" + "globalClientId='" + globalClientId + '\'' + ", accountNumber='"
+                + accountNumber + '\'' + ", firstName='" + firstName + '\'' + ", lastName='" + lastName + '\''
+                + ", countryId=" + countryId + ", banned=" + banned + ", active=" + active + '}';
     }
 
     /**
@@ -116,8 +110,7 @@ public class RosterGetClientResponseDTO {
         customDataList.add(new CustomData("clientFirstname", clientResponseDTO.getFirstName()));
         customDataList.add(new CustomData("clientLastname", clientResponseDTO.getLastName()));
         customDataList.add(new CustomData("banned", clientResponseDTO.getBanned()));
-        customDataList
-                .add(new CustomData("active", clientResponseDTO.getActive()));
+        customDataList.add(new CustomData("active", clientResponseDTO.getActive()));
         customDataList.add(new CustomData("countryId", clientResponseDTO.getCountryId()));
 
         return customDataList;
