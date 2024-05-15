@@ -8,4 +8,5 @@ public class CamelProperties {
     public static final String CUSTOM_DATA_VARIABLE_NAME = "customData";
     public static final String ACCOUNT_NUMBER = "account";
     public static final String CURRENCY = "currency";
+    public static final String AMOUNT = "amount";
 }

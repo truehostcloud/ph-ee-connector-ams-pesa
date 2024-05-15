@@ -3,13 +3,8 @@ package org.mifos.connector.ams.pesacore.pesacore.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * {
- *   "remoteTransactionId": "string",
- *   "phoneNumber": "+2547123456789",
- *   "account": "12345678",
- *   "amount": 123,
- *   "currency": "KES"
- * }
+ * { "remoteTransactionId": "string", "phoneNumber": "+2547123456789", "account": "12345678", "amount": 123, "currency":
+ * "KES" }
  */
 public class PesacoreRequestDTO {
 
@@ -36,20 +31,13 @@ public class PesacoreRequestDTO {
 
     private boolean getAccountDetails;
 
-    public PesacoreRequestDTO() {
-    }
+    public PesacoreRequestDTO() {}
 
     @Override
     public String toString() {
-        return "PesacoreRequestDTO{" +
-                "remoteTransactionId='" + remoteTransactionId + '\'' +
-                ", phoneNumber='" + phoneNumber + '\'' +
-                ", account='" + account + '\'' +
-                ", amount=" + amount +
-                ", currency='" + currency + '\'' +
-                ", status='" + status + '\'' +
-                ", receiptId='" + receiptId + '\'' +
-                '}';
+        return "PesacoreRequestDTO{" + "remoteTransactionId='" + remoteTransactionId + '\'' + ", phoneNumber='"
+                + phoneNumber + '\'' + ", account='" + account + '\'' + ", amount=" + amount + ", currency='" + currency
+                + '\'' + ", status='" + status + '\'' + ", receiptId='" + receiptId + '\'' + '}';
     }
 
     public String getStatus() {

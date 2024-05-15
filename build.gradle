@@ -7,6 +7,7 @@ plugins {
     id 'maven-publish'
     id 'eclipse'
     id 'org.springframework.boot' version '2.6.2'
+    id 'com.diffplug.spotless' version '6.19.0' apply false
 }
 
 repositories {
@@ -51,4 +52,73 @@ publishing {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+}
+
+allprojects {
+    apply plugin: 'com.diffplug.spotless'
+
+    // Configuration for the spotless plugin
+    // https://github.com/diffplug/spotless/tree/main/plugin-gradle
+    spotless {
+        format 'misc', {
+            target '**/*.md', '**/*.properties', '**/.gitignore', '**/.openapi-generator-ignore', '**/*.yml', '**/*.xml', '**/**.json', '**/*.sql'
+            targetExclude '**/build/**', '**/bin/**', '**/.settings/**', '**/.idea/**', '**/.gradle/**', '**/gradlew.bat'
+            indentWithSpaces(4)
+            endWithNewline()
+            trimTrailingWhitespace()
+        }
+
+        groovyGradle {
+            target '*.gradle', '**/*.gradle'
+            targetExclude '**/build/**'
+            greclipse()
+            indentWithSpaces(4)
+            endWithNewline()
+            trimTrailingWhitespace()
+        }
+        java {
+            targetExclude '**/build/**', '**/bin/**', '**/out/**', '**/megalinter-reports/**'
+            importOrder() //sort imports alphabetically
+            removeUnusedImports()
+            eclipse().configFile "$rootDir/config/dev-formatter.xml"
+            endWithNewline()
+            trimTrailingWhitespace()
+
+            // Enforce style modifier order
+            custom 'Modifier ordering', {
+                def modifierRanking = [
+                        public      : 1,
+                        protected   : 2,
+                        private     : 3,
+                        abstract    : 4,
+                        default     : 5,
+                        static      : 6,
+                        final       : 7,
+                        transient   : 8,
+                        volatile    : 9,
+                        synchronized: 10,
+                        native      : 11,
+                        strictfp    : 12]
+                // Find any instance of multiple modifiers. Lead with a non-word character to avoid
+                // accidental matching against for instance, "an alternative default value"
+                it.replaceAll(/\W(?:public |protected |private |abstract |default |static |final |transient |volatile |synchronized |native |strictfp ){2,}/, {
+                    // Do not replace the leading non-word character.  Identify the modifiers
+                    it.replaceAll(/(?:public |protected |private |abstract |default |static |final |transient |volatile |synchronized |native |strictfp ){2,}/, {
+                        // Sort the modifiers according to the ranking above
+                        it.split().sort({ modifierRanking[it] }).join(' ') + ' '
+                    }
+                    )
+                }
+                )
+            }
+        }
+
+        lineEndings 'UNIX'
+    }
+
+    compileJava.dependsOn spotlessCheck
+}
+
+test {
+    useJUnitPlatform()
 }
