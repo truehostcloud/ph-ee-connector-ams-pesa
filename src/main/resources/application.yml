@@ -44,4 +44,3 @@ management:
 logging:
   level:
     ROOT: INFO
-
