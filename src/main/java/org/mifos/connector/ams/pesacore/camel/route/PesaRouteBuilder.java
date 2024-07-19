@@ -270,11 +270,11 @@ public class PesaRouteBuilder extends RouteBuilder {
         if (amountObj != null) {
             if (amountObj instanceof String) {
 
-                amount = Long.valueOf((String) amountObj);
+                amount = Double.valueOf((String) amountObj).longValue();
                 currency = String.valueOf(channelRequest.get(CURRENCY));
             } else {
                 JSONObject amountJson = (JSONObject) amountObj;
-                amount = Long.valueOf(amountJson.getString(AMOUNT));
+                amount = Double.valueOf(amountJson.getString(AMOUNT)).longValue();
                 currency = amountJson.getString(CURRENCY);
             }
         }
